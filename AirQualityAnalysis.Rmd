@@ -1,0 +1,93 @@
+---
+title: "Air Quality Analysis"
+author: "Michael Hite"
+date: "September 24, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = FALSE}
+library(readxl)
+
+AirQualityUCI <- read_excel("AirQualityUCI.xlsx")
+
+AirQualityUCI$HM <- as.numeric(format(AirQualityUCI$Time, "%H")) +
+  as.numeric(format(AirQualityUCI$Time, "%M")) + as.numeric(format(AirQualityUCI$Time, "%S"))
+
+class(AirQualityUCI$HM)
+
+AirQualityUCI <- AirQualityUCI[,c(1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)]
+```
+
+
+## Air Quality Analysis
+
+### Introduction
+
+Our data consists of responses from a gas multisensor device located in a polluted Italian City. The device can detect 5 metal oxides (Carbon Monoxide, Nitrogen Oxides, and Tungsten and Tin Oxides) present in the air and then generate hourly responses of the gas concentrations. The data set contained a total 9358 instances and 15 attributes. We will narrow down the number of attributes to four predictors and one response, those being:
+
+#### Predictors
+1. True hourly averaged overall Non Metanic HydroCarbons concentration in microg/m^3. [NMHC(GT)]
+2. True hourly averaged Benzene concentration in microg/m^3. [C6H6(GT)]
+3. True hourly averaged NOx concentration in ppb. [NOx(GT)]
+4. True hourly averaged NO2 concentration in microg/m^3 (reference analyzer) [NO2(GT)]
+
+#### Response
+1. PT08.S1 (tin oxide) hourly averaged sensor response (nominally CO targeted) [PT08.S1]
+
+The main goals of this analysis are to identify a relationship between the predictors and responses, consider the strength of the relationship, identify which predictors contribute most to the response, if synergy effects on the response, and whether the relationship is linear or not.
+
+### 1: Is there a relationship among metal oxide concentrations and the hourly averaged Tin Oxide sensor response?
+Determining whether a relationship among the predictors and response exists is done by applying a multiple linear regression to the data. The relative p-value, which is measure of interaction between the predictors and response, needs to very close to zero to reject the null hypothesis. The p-value for the multiple linear regression was on the order of $2 \times 10^{-16}$, which is very significant, so a relationship exist among metal oxide concentrations and the hourly average tin oxide sensor response.
+
+```{r, echo = FALSE}
+lm.fit <- lm(`PT08.S1(CO)` ~ `NMHC(GT)` + `C6H6(GT)` + `NOx(GT)` + `NO2(GT)`, data = AirQualityUCI)
+
+summary(lm.fit)
+
+```
+
+### 2: How strong is the relationship among the metal oxides and the tin oxide hourly response?
+Now that we know a relationship exists, we need to know its strength. The adjusted $R^2$ value gives the percentage of variability in the response that is explained by the predictors.  The adjusted $R^2$ statistic in this case is 0.844, which means that the metal oxide concentrations explain approximately 84% of the variance in tin oxide hourly response. This indicates the relationship is strong.
+
+### 3: Which predictor contributes to the response?
+Examining the p-values associated with each predictor, for all metal oxides, their relative p-values are very significant $(< 2 \times 10^{-16})$. This means that all predictors contribute to the response.
+
+
+### 4: How large is the effect of each metal oxide concentration on tin oxide hourly response?
+
+There are multiple ways to approach this question. We choose the perform simple linear regressions between each predictor and the response and analyze the 95% confidence intervals of each. A predictor that has a large effect on the response will have confidence intervals that are narrow and for away from zero.
+```{r, echo = FALSE}
+lm.fit1 <- lm(`PT08.S1(CO)` ~ `NMHC(GT)`, data = AirQualityUCI)
+confint(lm.fit1)
+
+lm.fit2 <- lm(`PT08.S1(CO)` ~ `C6H6(GT)`, data = AirQualityUCI)
+confint(lm.fit2)
+
+lm.fit3 <- lm(`PT08.S1(CO)` ~ `NOx(GT)`, data = AirQualityUCI)
+confint(lm.fit3)
+
+lm.fit4 <- lm(`PT08.S1(CO)` ~ `NO2(GT)`, data = AirQualityUCI)
+confint(lm.fit4)
+
+```
+All confidence intervals are very narrow and zero is not contained within them. With this, the next step is to analyze relative magnitudes of the intervals. Respectively, the confidence intervals for NMHC, NOx, and NO2 are approximately [0.3, 0.45] which are rather small. The confidence interval for C6H6 indicates that its affect on the response is roughly 20 times larger than the other metal oxides. Though each metal oxide has a significant relationship to tin oxide hourly response, the effect due to C6H6 is much larger.
+
+### 5: How accurately with our model can we predict future tin oxide hourly responses?
+
+
+
+### 6: Is the relationship among the concentrations and tin oxide response linear?
+
+```{r, echo = FALSE}
+AirQualityUCI.multifit = lm(`PT08.S1(CO)` ~ `NMHC(GT)` + `C6H6(GT)` + `NOx(GT)` + `NO2(GT)`, data = AirQualityUCI)
+qqnorm(residuals(AirQualityUCI.multifit))
+qqline(residuals(AirQualityUCI.multifit))
+
+```
+
+### 7: Does synergy exist among the concentrations of the metal oxides that could skew the model?
+
